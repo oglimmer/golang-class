@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --user postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+  backend:
+    build: ./kniffel-server
+    ports:
+      - 8080:8080
+    environment:
+      DB_HOST: db
+      GIN_MODE: release
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+  frontend:
+    build:
+      context: ./kniffel-client
+      args:
+        API_URL: http://localhost:8080
+    ports:
+      - 80:80
+    depends_on:
+      backend:
+        condition: service_healthy

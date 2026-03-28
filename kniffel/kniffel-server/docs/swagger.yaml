@@ -1,0 +1,232 @@
+definitions:
+  handler.ServerStatus:
+    properties:
+      serverName:
+        type: string
+      serverStatus:
+        type: string
+      serverTime:
+        type: integer
+      serverVersion:
+        type: string
+    type: object
+  model.BookRollRequest:
+    properties:
+      bookingType:
+        type: string
+    type: object
+  model.CreateGameRequest:
+    properties:
+      playerNames:
+        items:
+          type: string
+        type: array
+    type: object
+  model.DiceRollRequest:
+    properties:
+      diceToKeep:
+        items:
+          type: integer
+        type: array
+    type: object
+  model.GameResponse:
+    properties:
+      availableBookingTypes:
+        items:
+          type: string
+        type: array
+      currentPlayerName:
+        type: string
+      diceRolls:
+        items:
+          type: integer
+        type: array
+      gameId:
+        type: string
+      playerData:
+        items:
+          $ref: '#/definitions/model.PlayerData'
+        type: array
+      rollRound:
+        type: integer
+      state:
+        type: string
+      usedBookingTypes:
+        items:
+          type: string
+        type: array
+    type: object
+  model.PlayerData:
+    properties:
+      name:
+        type: string
+      score:
+        type: integer
+    type: object
+externalDocs:
+  description: Kniffel Regeln
+  url: https://www.schmidtspiele.de/files/Produkte/4/49030%20-%20Kniffel/49203_49030_Kniffel_DE.pdf
+info:
+  contact: {}
+  description: Kniffel as a service - KaaS
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  title: Kniffel Game API
+  version: 0.0.1
+paths:
+  /api/v1/game/:
+    post:
+      consumes:
+      - application/json
+      description: The number of players must be at least 2. All player names must
+        be different.
+      parameters:
+      - description: Game creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateGameRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.GameResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new game with a specific number of players
+      tags:
+      - game
+  /api/v1/game/{gameId}:
+    get:
+      description: Retrieve the current state of a game
+      parameters:
+      - description: Game ID
+        in: path
+        name: gameId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.GameResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get game information
+      tags:
+      - game
+  /api/v1/game/{gameId}/book:
+    post:
+      consumes:
+      - application/json
+      description: Book the current dice roll into a scoring category
+      parameters:
+      - description: Game ID
+        in: path
+        name: gameId
+        required: true
+        type: string
+      - description: Booking type
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.BookRollRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.GameResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Book a dice roll
+      tags:
+      - game
+  /api/v1/game/{gameId}/roll:
+    post:
+      consumes:
+      - application/json
+      description: Re-roll dice that the player doesn't want to keep
+      parameters:
+      - description: Game ID
+        in: path
+        name: gameId
+        required: true
+        type: string
+      - description: Dice to keep
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.DiceRollRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.GameResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Re-roll dice
+      tags:
+      - game
+  /api/v1/server/goroutine-dump:
+    post:
+      description: Prints all goroutine stack traces to stdout
+      responses:
+        "200":
+          description: OK
+      summary: Dump goroutine stack traces
+      tags:
+      - server
+  /api/v1/server/status:
+    get:
+      description: Returns server time, version and status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.ServerStatus'
+      summary: Get server status
+      tags:
+      - server
+swagger: "2.0"

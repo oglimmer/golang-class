@@ -1,0 +1,12 @@
+# Binary
+kniffel
+
+# IDE
+.idea/
+.vscode/
+
+# Docker postgres data
+data/
+
+# Node
+kniffel-client/node_modules/

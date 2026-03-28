@@ -1,0 +1,46 @@
+/* Kniffel game theme */
+:root {
+  --color-bg: #faf6f1;
+  --color-surface: #ffffff;
+  --color-text: #3a2e2a;
+  --color-text-soft: #7a6e6a;
+  --color-accent: #c0533a;
+  --color-accent-hover: #a8432d;
+  --color-border: #e2dbd5;
+  --color-dice-bg: #fff8f0;
+  --color-dice-selected: #fce8c8;
+  --color-success: #5a8a5e;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1e1a17;
+    --color-surface: #2a2420;
+    --color-text: #e8e0d8;
+    --color-text-soft: #a09890;
+    --color-accent: #e07050;
+    --color-accent-hover: #f08060;
+    --color-border: #3a3430;
+    --color-dice-bg: #302820;
+    --color-dice-selected: #4a3828;
+    --color-success: #70b070;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-family: 'Gabarito', system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
