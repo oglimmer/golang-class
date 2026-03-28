@@ -125,10 +125,12 @@ func (s *GameService) CreateGame(playerNames []string) (*model.KniffelGame, erro
     return game, nil
 }
 
-func (s *GameService) GetGameInfo(gameId string) (*model.KniffelGame, error) {
-    game, ok := s.games[gameId]
+func (s *GameService) GetGameInfo(gameID string) (*model.KniffelGame, error) {
+    s.mu.RLock()
+    game, ok := s.games[gameID]
+    s.mu.RUnlock()
     if !ok {
-        return nil, &model.ErrNotFound{Message: gameId}
+        return nil, &model.ErrNotFound{Message: gameID}
     }
     return game, nil
 }
@@ -536,10 +538,10 @@ COPY . .
 
 # run tests and build
 RUN go test ./...
-RUN go build -o kniffel .
+RUN CGO_ENABLED=0 go build -o kniffel .
 
 # Runtime stage - using scratch or alpine for tiny images
-FROM alpine:latest
+FROM alpine:3.21
 
 WORKDIR /opt/app
 
@@ -593,8 +595,6 @@ docker run --rm -p 80:80 kniffel-frontend
 Create a file `docker-compose.yml` in the parent directory:
 
 ```yml
-version: '3'
-
 services:
   backend:
     build: ./kniffel

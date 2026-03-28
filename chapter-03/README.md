@@ -103,19 +103,28 @@ import (
     "github.com/oglimmer/kniffel/service"
 )
 
-type GameHandler struct {
-    gameService *service.GameService
+// GameServiceInterface defines what the handler needs from the service layer.
+// In Go, interfaces are defined by the consumer, not the provider.
+type GameServiceInterface interface {
+    CreateGame(playerNames []string) *model.KniffelGame
+    GetGameInfo(gameID string) *model.KniffelGame
+    Roll(game *model.KniffelGame, diceToKeep []int)
+    BookRoll(game *model.KniffelGame, bookingType string)
 }
 
-func NewGameHandler(gameService *service.GameService) *GameHandler {
+type GameHandler struct {
+    gameService GameServiceInterface
+}
+
+func NewGameHandler(gameService GameServiceInterface) *GameHandler {
     return &GameHandler{gameService: gameService}
 }
 
 func (h *GameHandler) RegisterRoutes(r *gin.RouterGroup) {
     r.POST("/", h.CreateGame)
-    r.GET("/:gameId", h.GetGameInfo)
-    r.POST("/:gameId/roll", h.Roll)
-    r.POST("/:gameId/book", h.Book)
+    r.GET("/:gameID", h.GetGameInfo)
+    r.POST("/:gameID/roll", h.Roll)
+    r.POST("/:gameID/book", h.Book)
 }
 
 func (h *GameHandler) CreateGame(c *gin.Context) {
@@ -129,30 +138,30 @@ func (h *GameHandler) CreateGame(c *gin.Context) {
 }
 
 func (h *GameHandler) GetGameInfo(c *gin.Context) {
-    gameId := c.Param("gameId")
-    _ = gameId // TODO: implement
+    gameID := c.Param("gameID")
+    _ = gameID // TODO: implement
     c.JSON(http.StatusOK, model.GameResponse{})
 }
 
 func (h *GameHandler) Roll(c *gin.Context) {
-    gameId := c.Param("gameId")
+    gameID := c.Param("gameID")
     var req model.DiceRollRequest
     if err := c.ShouldBindJSON(&req); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
-    _ = gameId // TODO: implement
+    _ = gameID // TODO: implement
     c.JSON(http.StatusOK, model.GameResponse{})
 }
 
 func (h *GameHandler) Book(c *gin.Context) {
-    gameId := c.Param("gameId")
+    gameID := c.Param("gameID")
     var req model.BookRollRequest
     if err := c.ShouldBindJSON(&req); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
-    _ = gameId // TODO: implement
+    _ = gameID // TODO: implement
     c.JSON(http.StatusOK, model.GameResponse{})
 }
 ```
@@ -310,10 +319,11 @@ This approach is sometimes called "poor man's DI" but it's the idiomatic Go way.
 
 ### Interfaces for DI
 
-When you want to swap implementations (e.g., for testing), Go uses **interfaces**:
+When you want to swap implementations (e.g., for testing), Go uses **interfaces**. An important Go principle is: **define interfaces at the consumer, not the provider** ("accept interfaces, return structs"). The interface should live in the package that _uses_ it, not in the package that _implements_ it. This keeps packages decoupled:
 
 ```go
-// GameRepository is an interface - any type implementing these methods can be used
+// In the service package: define the interface the service needs
+// This interface is defined here because the service is the consumer of the repository
 type GameRepository interface {
     Save(game *KniffelGame) error
     FindByGameID(gameID string) (*KniffelGame, error)
@@ -329,7 +339,7 @@ func NewGameService(repo GameRepository) *GameService {
 }
 ```
 
-In Go, interfaces are **implicit** - a type implements an interface simply by having the required methods. No `implements` keyword needed.
+In Go, interfaces are **implicit** - a type implements an interface simply by having the required methods. No `implements` keyword needed. This means the repository implementation doesn't even need to know about the interface - it just needs to have the right methods.
 
 ## Step 3 - Application Layers
 
@@ -341,12 +351,14 @@ It is good practice to have a business layer service for our domain objects. In 
 package service
 
 import (
+    "sync"
     "github.com/oglimmer/kniffel/model"
 )
 
 type GameService struct {
     // This map acts as our "database backend"
     // key = game ID, value = the actual game object
+    mu    sync.RWMutex
     games map[string]*model.KniffelGame
 }
 
@@ -366,13 +378,17 @@ func (s *GameService) CreateGame(playerNames []string) *model.KniffelGame {
     // create game
     game := model.NewKniffelGame(players)
 
-    // store in memory
+    // store in memory - lock needed as Go maps are not safe for concurrent access
+    s.mu.Lock()
     s.games[game.GameID] = game
+    s.mu.Unlock()
     return game
 }
 
-func (s *GameService) GetGameInfo(gameId string) *model.KniffelGame {
-    return s.games[gameId]
+func (s *GameService) GetGameInfo(gameID string) *model.KniffelGame {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    return s.games[gameID]
 }
 
 func (s *GameService) Roll(game *model.KniffelGame, diceToKeep []int) {
@@ -383,6 +399,8 @@ func (s *GameService) BookRoll(game *model.KniffelGame, bookingType string) {
     game.BookDiceRoll(bookingType)
 }
 ```
+
+**Important**: Go maps are **not safe for concurrent access**. Since Gin handles each HTTP request in its own goroutine, multiple requests can read/write the map simultaneously, causing a data race. We use `sync.RWMutex` to protect map access: `RLock`/`RUnlock` for reads, `Lock`/`Unlock` for writes.
 
 ## Step 4 - Game Logic - `KniffelGame`
 
@@ -401,6 +419,7 @@ package model
 import (
     "crypto/rand"
     "encoding/hex"
+    "fmt"
     "math/big"
 )
 
@@ -550,7 +569,9 @@ func rollDie() int {
 
 func generateID() string {
     b := make([]byte, 16)
-    rand.Read(b)
+    if _, err := rand.Read(b); err != nil {
+        panic(fmt.Sprintf("failed to generate random ID: %v", err))
+    }
     return hex.EncodeToString(b)
 }
 
@@ -726,4 +747,4 @@ All of these handlers can be implemented in less than 10 lines of code each.
 
 * Read more about swaggo at https://github.com/swaggo/swag
 * Read about Go interfaces: https://go.dev/tour/methods/9
-* Explore different Go project layouts: https://github.com/golang-standards/project-layout
+* Read the official Go project layout guidance: https://go.dev/doc/modules/layout

@@ -186,6 +186,11 @@ func NewDatabase(cfg *config.Config) (*gorm.DB, error) {
 
     // auto-migrate creates/updates tables based on the struct definitions
     // similar to spring.jpa.hibernate.ddl-auto=update
+    // NOTE: AutoMigrate is convenient for development, but for production
+    // applications you should use a proper migration tool like
+    // golang-migrate/migrate (https://github.com/golang-migrate/migrate)
+    // or goose (https://github.com/pressly/goose). AutoMigrate cannot
+    // handle column renames, deletions, or complex schema changes safely.
     err = db.AutoMigrate(
         &model.KniffelGame{},
         &model.KniffelPlayer{},
@@ -281,10 +286,10 @@ func (s *GameService) CreateGame(playerNames []string) (*model.KniffelGame, erro
     return game, nil
 }
 
-func (s *GameService) GetGameInfo(gameId string) (*model.KniffelGame, error) {
-    game, err := s.repo.FindByGameID(gameId)
+func (s *GameService) GetGameInfo(gameID string) (*model.KniffelGame, error) {
+    game, err := s.repo.FindByGameID(gameID)
     if err != nil {
-        return nil, &model.ErrNotFound{Message: gameId}
+        return nil, &model.ErrNotFound{Message: gameID}
     }
     return game, nil
 }
@@ -505,8 +510,6 @@ r.GET("/health", func(c *gin.Context) {
 # Step 8 - Extending Docker Compose for database backend
 
 ```yml
-version: '3'
-
 services:
   db:
     image: postgres

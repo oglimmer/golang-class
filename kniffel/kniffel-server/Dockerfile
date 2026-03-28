@@ -12,10 +12,10 @@ COPY . .
 
 # run tests and build
 RUN go test ./...
-RUN go build -o kniffel .
+RUN CGO_ENABLED=0 go build -o kniffel .
 
 # Runtime stage
-FROM alpine:latest
+FROM alpine:3.21
 
 WORKDIR /opt/app
 

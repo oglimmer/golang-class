@@ -2,6 +2,7 @@ package service
 
 import (
 	"log/slog"
+	"sync"
 
 	"github.com/oglimmer/kniffel/model"
 	"github.com/oglimmer/kniffel/repository"
@@ -11,6 +12,7 @@ import (
 type GameService struct {
 	repo *repository.GameRepository
 	// in-memory fallback when no database is configured
+	mu    sync.RWMutex
 	games map[string]*model.KniffelGame
 }
 
@@ -46,14 +48,16 @@ func (s *GameService) CreateGame(playerNames []string) (*model.KniffelGame, erro
 	}
 	game := model.NewKniffelGame(players)
 
-	slog.Info("game created", "gameId", game.GameID, "players", playerNames)
+	slog.Info("game created", "gameID", game.GameID, "players", playerNames)
 
 	if s.repo != nil {
 		if err := s.repo.Save(game); err != nil {
 			return nil, err
 		}
 	} else {
+		s.mu.Lock()
 		s.games[game.GameID] = game
+		s.mu.Unlock()
 	}
 
 	return game, nil
@@ -69,7 +73,9 @@ func (s *GameService) GetGameInfo(gameID string) (*model.KniffelGame, error) {
 		return game, nil
 	}
 
+	s.mu.RLock()
 	game, ok := s.games[gameID]
+	s.mu.RUnlock()
 	if !ok {
 		return nil, &model.ErrNotFound{Message: gameID}
 	}
@@ -82,7 +88,7 @@ func (s *GameService) Roll(game *model.KniffelGame, diceToKeep []int) error {
 		return &model.ErrBadRequest{Message: "game is not in roll state"}
 	}
 
-	slog.Debug("rolling dice", "gameId", game.GameID, "currentDice", game.DiceRolls, "toKeep", diceToKeep)
+	slog.Debug("rolling dice", "gameID", game.GameID, "currentDice", game.DiceRolls, "toKeep", diceToKeep)
 
 	game.ReRollDice(diceToKeep)
 
@@ -98,7 +104,7 @@ func (s *GameService) BookRoll(game *model.KniffelGame, bookingType string) erro
 		return &model.ErrBadRequest{Message: "game is not in book state"}
 	}
 
-	slog.Info("booking roll", "gameId", game.GameID, "bookingType", bookingType, "player", game.CurrentPlayer().Name)
+	slog.Info("booking roll", "gameID", game.GameID, "bookingType", bookingType, "player", game.CurrentPlayer().Name)
 
 	game.BookDiceRoll(bookingType)
 

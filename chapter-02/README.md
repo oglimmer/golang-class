@@ -42,6 +42,7 @@ Let's add an endpoint to our `main.go`:
 package main
 
 import (
+    "fmt"
     "net/http"
     "runtime"
     "github.com/gin-gonic/gin"
@@ -58,7 +59,7 @@ func main() {
             // print all goroutine stack traces to stdout
             buf := make([]byte, 1<<16)
             n := runtime.Stack(buf, true)
-            println(string(buf[:n]))
+            fmt.Println(string(buf[:n]))
             // return 200 with no body
             c.Status(http.StatusOK)
         })
@@ -149,6 +150,7 @@ Now update your `main.go`:
 package main
 
 import (
+    "fmt"
     "net/http"
     "runtime"
     "github.com/gin-gonic/gin"
@@ -172,7 +174,7 @@ func main() {
         server.POST("/goroutine-dump", func(c *gin.Context) {
             buf := make([]byte, 1<<16)
             n := runtime.Stack(buf, true)
-            println(string(buf[:n]))
+            fmt.Println(string(buf[:n]))
             c.Status(http.StatusOK)
         })
     }
@@ -289,10 +291,10 @@ We already saw the endpoint to create a game: POST to /api/v1/game/
 To retrieve the data for an existing game the URL should look like this: `/api/v1/game/<ID>` and the method should be a GET request.
 
 ```go
-game.GET("/:gameId", func(c *gin.Context) {
+game.GET("/:gameID", func(c *gin.Context) {
     // c.Param extracts the path variable from the URL
-    gameId := c.Param("gameId")
-    fmt.Printf("gameId = %s\n", gameId)
+    gameID := c.Param("gameID")
+    fmt.Printf("gameID = %s\n", gameID)
     c.Status(http.StatusOK)
 })
 ```

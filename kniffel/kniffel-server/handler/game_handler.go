@@ -6,25 +6,33 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/oglimmer/kniffel/model"
-	"github.com/oglimmer/kniffel/service"
 )
+
+// GameServiceInterface defines what the handler needs from the service layer.
+// In Go, interfaces are defined by the consumer, not the provider.
+type GameServiceInterface interface {
+	CreateGame(playerNames []string) (*model.KniffelGame, error)
+	GetGameInfo(gameID string) (*model.KniffelGame, error)
+	Roll(game *model.KniffelGame, diceToKeep []int) error
+	BookRoll(game *model.KniffelGame, bookingType string) error
+}
 
 // GameHandler handles game-related HTTP requests
 type GameHandler struct {
-	gameService *service.GameService
+	gameService GameServiceInterface
 }
 
 // NewGameHandler creates a new GameHandler
-func NewGameHandler(gameService *service.GameService) *GameHandler {
+func NewGameHandler(gameService GameServiceInterface) *GameHandler {
 	return &GameHandler{gameService: gameService}
 }
 
 // RegisterRoutes registers all game routes on the given router group
 func (h *GameHandler) RegisterRoutes(r *gin.RouterGroup) {
 	r.POST("/", h.CreateGame)
-	r.GET("/:gameId", h.GetGameInfo)
-	r.POST("/:gameId/roll", h.Roll)
-	r.POST("/:gameId/book", h.Book)
+	r.GET("/:gameID", h.GetGameInfo)
+	r.POST("/:gameID/roll", h.Roll)
+	r.POST("/:gameID/book", h.Book)
 }
 
 // CreateGame creates a new game
@@ -57,12 +65,12 @@ func (h *GameHandler) CreateGame(c *gin.Context) {
 // @Description Retrieve the current state of a game
 // @Tags game
 // @Produce json
-// @Param gameId path string true "Game ID"
+// @Param gameID path string true "Game ID"
 // @Success 200 {object} model.GameResponse
 // @Failure 404 {object} map[string]string
-// @Router /api/v1/game/{gameId} [get]
+// @Router /api/v1/game/{gameID} [get]
 func (h *GameHandler) GetGameInfo(c *gin.Context) {
-	game, err := h.gameService.GetGameInfo(c.Param("gameId"))
+	game, err := h.gameService.GetGameInfo(c.Param("gameID"))
 	if err != nil {
 		handleError(c, err)
 		return
@@ -76,14 +84,14 @@ func (h *GameHandler) GetGameInfo(c *gin.Context) {
 // @Tags game
 // @Accept json
 // @Produce json
-// @Param gameId path string true "Game ID"
+// @Param gameID path string true "Game ID"
 // @Param request body model.DiceRollRequest true "Dice to keep"
 // @Success 200 {object} model.GameResponse
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
-// @Router /api/v1/game/{gameId}/roll [post]
+// @Router /api/v1/game/{gameID}/roll [post]
 func (h *GameHandler) Roll(c *gin.Context) {
-	game, err := h.gameService.GetGameInfo(c.Param("gameId"))
+	game, err := h.gameService.GetGameInfo(c.Param("gameID"))
 	if err != nil {
 		handleError(c, err)
 		return
@@ -108,14 +116,14 @@ func (h *GameHandler) Roll(c *gin.Context) {
 // @Tags game
 // @Accept json
 // @Produce json
-// @Param gameId path string true "Game ID"
+// @Param gameID path string true "Game ID"
 // @Param request body model.BookRollRequest true "Booking type"
 // @Success 200 {object} model.GameResponse
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
-// @Router /api/v1/game/{gameId}/book [post]
+// @Router /api/v1/game/{gameID}/book [post]
 func (h *GameHandler) Book(c *gin.Context) {
-	game, err := h.gameService.GetGameInfo(c.Param("gameId"))
+	game, err := h.gameService.GetGameInfo(c.Param("gameID"))
 	if err != nil {
 		handleError(c, err)
 		return

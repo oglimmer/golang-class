@@ -40,7 +40,7 @@ func main() {
 	slog.SetDefault(logger)
 
 	// Wire dependencies - try database, fall back to in-memory
-	var gameService *service.GameService
+	var gameService handler.GameServiceInterface
 	var gameRepo *repository.GameRepository
 
 	db, err := repository.NewDatabase(cfg)

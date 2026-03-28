@@ -21,6 +21,7 @@ This is how a `GameService` could look like:
 ```go
 type GameService struct {
     // fake database backend
+    mu    sync.RWMutex
     games map[string]*model.KniffelGame
 }
 
@@ -36,12 +37,16 @@ func (s *GameService) CreateGame(playerNames []string) *model.KniffelGame {
         players[i] = model.KniffelPlayer{Name: name}
     }
     game := model.NewKniffelGame(players)
+    s.mu.Lock()
     s.games[game.GameID] = game
+    s.mu.Unlock()
     return game
 }
 
-func (s *GameService) GetGameInfo(gameId string) *model.KniffelGame {
-    return s.games[gameId]
+func (s *GameService) GetGameInfo(gameID string) *model.KniffelGame {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    return s.games[gameID]
 }
 
 func (s *GameService) Roll(game *model.KniffelGame, diceToKeep []int) {
@@ -56,19 +61,27 @@ func (s *GameService) BookRoll(game *model.KniffelGame, bookingType string) {
 This is how a `GameHandler` could look like:
 
 ```go
-type GameHandler struct {
-    gameService *service.GameService
+// GameServiceInterface defines what the handler needs from the service layer
+type GameServiceInterface interface {
+    CreateGame(playerNames []string) *model.KniffelGame
+    GetGameInfo(gameID string) *model.KniffelGame
+    Roll(game *model.KniffelGame, diceToKeep []int)
+    BookRoll(game *model.KniffelGame, bookingType string)
 }
 
-func NewGameHandler(gameService *service.GameService) *GameHandler {
+type GameHandler struct {
+    gameService GameServiceInterface
+}
+
+func NewGameHandler(gameService GameServiceInterface) *GameHandler {
     return &GameHandler{gameService: gameService}
 }
 
 func (h *GameHandler) RegisterRoutes(r *gin.RouterGroup) {
     r.POST("/", h.CreateGame)
-    r.GET("/:gameId", h.GetGameInfo)
-    r.POST("/:gameId/roll", h.Roll)
-    r.POST("/:gameId/book", h.Book)
+    r.GET("/:gameID", h.GetGameInfo)
+    r.POST("/:gameID/roll", h.Roll)
+    r.POST("/:gameID/book", h.Book)
 }
 
 func (h *GameHandler) CreateGame(c *gin.Context) {
@@ -82,31 +95,31 @@ func (h *GameHandler) CreateGame(c *gin.Context) {
 }
 
 func (h *GameHandler) GetGameInfo(c *gin.Context) {
-    gameId := c.Param("gameId")
-    game := h.gameService.GetGameInfo(gameId)
+    gameID := c.Param("gameID")
+    game := h.gameService.GetGameInfo(gameID)
     c.JSON(http.StatusOK, mapGameResponse(game))
 }
 
 func (h *GameHandler) Roll(c *gin.Context) {
-    gameId := c.Param("gameId")
+    gameID := c.Param("gameID")
     var req model.DiceRollRequest
     if err := c.ShouldBindJSON(&req); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
-    game := h.gameService.GetGameInfo(gameId)
+    game := h.gameService.GetGameInfo(gameID)
     h.gameService.Roll(game, req.DiceToKeep)
     c.JSON(http.StatusOK, mapGameResponse(game))
 }
 
 func (h *GameHandler) Book(c *gin.Context) {
-    gameId := c.Param("gameId")
+    gameID := c.Param("gameID")
     var req model.BookRollRequest
     if err := c.ShouldBindJSON(&req); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
-    game := h.gameService.GetGameInfo(gameId)
+    game := h.gameService.GetGameInfo(gameID)
     h.gameService.BookRoll(game, req.BookingType)
     c.JSON(http.StatusOK, mapGameResponse(game))
 }

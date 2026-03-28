@@ -29,6 +29,9 @@ func NewDatabase(cfg *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	// NOTE: AutoMigrate is convenient for development, but for production
+	// use a proper migration tool like golang-migrate/migrate or goose.
+	// AutoMigrate cannot handle column renames, deletions, or complex schema changes safely.
 	err = db.AutoMigrate(
 		&model.GameEntity{},
 		&model.PlayerEntity{},
